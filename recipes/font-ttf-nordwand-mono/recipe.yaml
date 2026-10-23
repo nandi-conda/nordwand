@@ -1,0 +1,43 @@
+context:
+  version: "1.3.4"
+
+package:
+  name: font-ttf-nordwand-mono
+  version: ${{ version }}
+
+source:
+  - path: ../../scripts/install-fonts.sh
+    file_name: install-fonts.sh
+  - url: https://github.com/tywr/Nordwand-Mono/releases/download/${{ version }}/NordwandMono-TTF.zip
+    sha256: 21feb40d80d241c8da4d99c61cef64fbeeacbc5953f7f2cca27ff1bd9cd52c01
+    target_directory: ttf
+  - url: https://raw.githubusercontent.com/tywr/Nordwand-Mono/${{ version }}/LICENSE-FONT.txt
+    sha256: e0e493edae714ad5bb243a346f3fd45ecdd94a00584118297f2d05e0f6187d38
+    file_name: LICENSE-FONT.txt
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    - mkdir -p $PREFIX/fonts
+    - cp ttf/*.ttf $PREFIX/fonts/
+    - mkdir -p $PREFIX/bin
+    - sed -e 's/@FAMILY@/nordwand/' -e 's/@GLOB@/NordwandMono-*.ttf/' -e 's/@NAME@/nordwand-install-fonts/' install-fonts.sh > $PREFIX/bin/nordwand-install-fonts
+    - chmod +x $PREFIX/bin/nordwand-install-fonts
+
+tests:
+  - script:
+      - nordwand-install-fonts --help
+  - package_contents:
+      bin:
+        - nordwand-install-fonts
+      files:
+        - fonts/NordwandMono-Regular.ttf
+        - fonts/NordwandMono-BoldItalic.ttf
+
+about:
+  homepage: https://github.com/tywr/Nordwand-Mono
+  repository: https://github.com/tywr/Nordwand-Mono
+  license: OFL-1.1
+  license_file: LICENSE-FONT.txt
+  summary: Nordwand Mono, a compact neo-grotesk monospaced font designed for coding

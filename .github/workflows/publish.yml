@@ -1,0 +1,51 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # prefix.dev trusted publishing
+
+env:
+  CHANNEL: nandi-testing
+  RATTLER_BUILD_VERSION: v0.77.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Nerd Font patcher needs fontforge, which isn't packaged on conda-forge.
+      - name: Install fontforge
+        run: sudo apt-get update && sudo apt-get install -y fontforge python3-fontforge
+
+      - name: Install rattler-build
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/rattler-build" \
+            "https://github.com/prefix-dev/rattler-build/releases/download/${RATTLER_BUILD_VERSION}/rattler-build-x86_64-unknown-linux-musl"
+          chmod +x "$HOME/.local/bin/rattler-build"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build
+        run: |
+          rattler-build build --recipe-dir recipes \
+            -c conda-forge -c "https://prefix.dev/${CHANNEL}" \
+            --skip-existing all --output-dir output
+
+      - name: Upload
+        if: github.event_name != 'pull_request'
+        env:
+          # Optional: falls back to trusted publishing when unset.
+          PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}
+        run: |
+          shopt -s nullglob
+          pkgs=(output/noarch/*.conda output/linux-64/*.conda)
+          if [ ${#pkgs[@]} -eq 0 ]; then echo "Nothing new to upload"; exit 0; fi
+          for pkg in "${pkgs[@]}"; do
+            rattler-build upload prefix -c "$CHANNEL" --skip-existing "$pkg"
+          done

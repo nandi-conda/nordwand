@@ -1,0 +1,64 @@
+context:
+  version: "1.3.4"
+  patcher_version: "3.5.1"
+
+package:
+  name: font-ttf-nerdwand-mono
+  version: ${{ version }}
+
+source:
+  - path: ../../scripts/install-fonts.sh
+    file_name: install-fonts.sh
+  - git: https://github.com/tywr/Nordwand-Mono.git
+    tag: ${{ version }}
+    depth: 1
+  - url: https://github.com/tywr/Nordwand-Mono/releases/download/${{ version }}/NordwandMono-TTF.zip
+    sha256: 21feb40d80d241c8da4d99c61cef64fbeeacbc5953f7f2cca27ff1bd9cd52c01
+    target_directory: fonts/ttf
+  # Pre-seed the patcher where upstream's script looks for it, so it doesn't download at build time.
+  - url: https://github.com/ryanoasis/nerd-fonts/releases/download/v${{ patcher_version }}/FontPatcher.zip
+    sha256: 42bcb32145499a35732274c7fc48deb434ad0d2e0e118f98527c1479c6fa251a
+    target_directory: .nerd-fonts/${{ patcher_version }}
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    - command -v fontforge || { echo "fontforge must be on PATH" >&2; exit 1; }
+    # Upstream's Nerd Font build (make build-nerd-font), run against the released TTFs.
+    - PYTHONPATH=src python -m scripts.nerd_font
+    - mkdir -p $PREFIX/fonts $PREFIX/share/licenses/font-ttf-nerdwand-mono
+    - cp fonts/nerd-font/*.ttf $PREFIX/fonts/
+    - cp -r fonts/nerd-font/licenses/. $PREFIX/share/licenses/font-ttf-nerdwand-mono/
+    - mkdir -p $PREFIX/bin
+    - sed -e 's/@FAMILY@/nerdwand/' -e 's/@GLOB@/NerdwandMono-*.ttf/' -e 's/@NAME@/nerdwand-install-fonts/' install-fonts.sh > $PREFIX/bin/nerdwand-install-fonts
+    - chmod +x $PREFIX/bin/nerdwand-install-fonts
+
+requirements:
+  build:
+    # fontforge isn't packaged on conda-forge; the system one is used
+    # (apt install fontforge python3-fontforge).
+    - python 3.12.*
+    - fonttools
+
+tests:
+  - script:
+      - nerdwand-install-fonts --help
+  - package_contents:
+      bin:
+        - nerdwand-install-fonts
+      files:
+        - fonts/NerdwandMono-Regular.ttf
+        - fonts/NerdwandMono-BoldItalic.ttf
+
+about:
+  homepage: https://github.com/tywr/Nordwand-Mono
+  repository: https://github.com/tywr/Nordwand-Mono
+  license: OFL-1.1 AND MIT
+  license_file:
+    - LICENSE-FONT.txt
+  summary: Nerdwand Mono, Nordwand Mono patched with the complete Nerd Fonts icon set
+  description: |
+    Built from the upstream Nordwand Mono release TTFs using upstream's
+    scripts/nerd_font.py and Nerd Fonts font-patcher. Icon set licenses are
+    installed under share/licenses/font-ttf-nerdwand-mono.
